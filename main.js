@@ -1,7 +1,9 @@
 var laser, lasers;
+var ysk = 0;
 var ground_1, ground_2, grounds;
-var rockets, rocket;
+var rockets, rocket, rocket_1, rocket_2, rocket_3, rocket_4;
 var robot;
+var reticle;
 var barriers, barrier_1, barrier_2, setbarrier = 0;
 var speed, time = 0, timeR = 0;
 var stats;
@@ -16,23 +18,24 @@ var coin = 0, coins = 0, coinText;
 var hpText, hp = 3;
 var bombs;
 var whatgame = '';
+var lifespanNull = 500;
 
 class Boot extends Phaser.Scene {
     constructor (){super('boot');}
 
     //предзагрузка всех картинок
     preload () 
-    {
-        //this.load.image('background','assets/background.gif');
-        
+    {        
         this.load.image('blue', 'assets/blue.png');
         this.load.image('line', 'assets/line.png');
+        this.load.image('qadlin', 'assets/qadlin.png');
         this.load.image('agar', 'assets/agar.png');
         this.load.image('but_menu', 'assets/but_menu.png');
 
         this.load.image('sky', 'assets/sky.png');
         this.load.image('star', 'assets/star.png');
         this.load.image('robot', 'assets/robot.png');
+        this.load.image('target', 'assets/target.png');
         this.load.image('laser', 'assets/laser.png');
         this.load.image('bomb', 'assets/bomb.png');
 
@@ -70,7 +73,9 @@ class Hub extends Phaser.Scene {
 
         //добавление фонов игры как кнопок выбора
         var button1 = this.add.image(300, 400, 'sky', 0).setInteractive().setDisplaySize(200,150);
+        this.add.image(300, 400, 'qadlin');
         var button2 = this.add.image(700, 400, 'background_game2', 0).setInteractive().setDisplaySize(200,150);
+        this.add.image(700, 400, 'qadlin');
 
         //текстовое содержание сцены
 	    this.add.text(130, 520, 'Кликай мышкой на картинку, чтобы начать играть!', { fontFamily: 'bebas', fontSize: 35, color: '#ffffff' }).setShadow(2, 2, "#333333", 2, false, true);
@@ -118,7 +123,8 @@ class Instructions extends Phaser.Scene {
 	    
         this.add.text(100, 520, 'Жми пробел, чтобы начать играть!', { fontFamily: 'bebas', fontSize: 40, color: '#ffffff' }).setShadow(2, 2, "#333333", 2, false, true);
         if (whatgame == 'game'){
-            this.add.text(100, 380, 'Ты должен управлять роботом и расстреливать звёздочки, уворачиваясь от вражеских коптеров!', { fontFamily: 'bebas', fontStyle: 'bold', fontSize: 20, color: '#000000' });
+            this.add.text(100, 380, 'Ты должен управлять роботом и собирать звёздочки, уворачиваясь и отстреливаясь', { fontFamily: 'bebas', fontStyle: 'bold', fontSize: 20, color: '#000000' });
+            this.add.text(100, 410, 'от вражеских коптеров, имеющих 5 жизней!', { fontFamily: 'bebas', fontStyle: 'bold', fontSize: 20, color: '#000000' });
         }else if (whatgame == 'game_2'){
 	        this.add.text(100, 380, 'Ты должен управлять роботом и дойти собирать звёздочки, уворачиваясь от ракет и \nпреодолевая препятствия!', { fontFamily: 'bebas', fontStyle: 'bold', fontSize: 20, color: '#000000', lineSpacing: 6});
         }
@@ -163,7 +169,7 @@ class Game_Lvl_1 extends Phaser.Scene {
         info.create(200, 300, 'line');
 
         //информация
-        var help = ['Управление:', '· Стрелочки - перемещение \nробота;', '· Мышь - наведение лазера;', '· ЛКМ - стрельба из лазера.', '', 'Клавиша F - переход в\nполноэкранный режим.'];
+        var help = ['Управление:', '· Стрелочки - перемещение \nробота;', '· Мышь - наведение лазера;', '· ЛКМ - стрельба из лазера.', '', 'Клавиши F/ESC - управление\nполноэкранным режимом.'];
         this.add.text(5, 300, help, { fontFamily: 'bebas', fontSize: 15, color: '#000', lineSpacing: 6 });
 
         var button1 = this.add.image(100, 550, 'but_menu', 0).setInteractive();
@@ -194,7 +200,7 @@ class Game_Lvl_1 extends Phaser.Scene {
             },
 
             fire: function (mx, my, rx, ry)
-            {
+            {   
                 this.setActive(true);
                 this.setVisible(true);
                 this.setPosition(rx, ry);
@@ -202,7 +208,7 @@ class Game_Lvl_1 extends Phaser.Scene {
                 this.setRotation(angle);
                 this.incX = Math.cos(angle);
                 this.incY = Math.sin(angle);
-                this.lifespan = 500;
+                this.lifespan = lifespanNull;
             },
 
             update: function (time, delta)
@@ -223,7 +229,7 @@ class Game_Lvl_1 extends Phaser.Scene {
         stars = this.physics.add.group();
 
         //генерация звезд
-        for (let i = 0; i < 5; i++) {stars.create(Phaser.Math.Between(240,960),Phaser.Math.Between(40,560),"star")}
+        for (let i = 0; i < 5; i++) {stars.create(Phaser.Math.Between(240,960),Phaser.Math.Between(40,560),"star").setImmovable()}
         
         //создание физической группы - лазеры
         lasers = this.physics.add.group({
@@ -232,20 +238,26 @@ class Game_Lvl_1 extends Phaser.Scene {
             runChildUpdate: true
         });
         
-        //отслеживание перекрытия лазерами звёзд, вызов функции при перекрытии
-        this.physics.add.overlap(lasers, stars, this.collectStar, null, this);
+        reticle = this.physics.add.sprite(500, 200, 'target').setBounce(1);
+        reticle.setDisplaySize(15, 15).setCollideWorldBounds(true);
+        
+        game.canvas.addEventListener('mousedown', function () {game.input.mouse.requestPointerLock();});
+        
+        this.input.on('pointermove', function (pointer) {
+            if (this.input.mouse.locked)
+            {
+                reticle.x += pointer.movementX;
+                reticle.y += pointer.movementY;
+            }
+        }, this);
 
-        //создание физического робота, с глубиной 1 
-        robot = this.physics.add.sprite(600, 300, 'robot').setDepth(1);
-
-        //столкновение робота с обьектами
-        robot.setBounce(1);
-
-        //столкновение робота с границами
-        robot.setCollideWorldBounds(true); 
+        //создание физического робота, с глубиной 1,столкновение робота с обьектами ,столкновение робота с границами
+        robot = this.physics.add.sprite(600, 300, 'robot').setDepth(1).setBounce(1).setCollideWorldBounds(true).setOrigin(0.5,0.5);
+        this.physics.add.collider(robot, stars,  this.collectStar, null, this);
 
         //создание физической группы - бомбы
         bombs = this.physics.add.group();
+        this.physics.add.overlap(bombs, lasers, this.lbhit, null, this);
 
         //отслеживание столкновения робота с бомбами, вызов функции при столкновении
         this.physics.add.collider(robot, bombs, this.hitBomb, null, this);
@@ -253,11 +265,11 @@ class Game_Lvl_1 extends Phaser.Scene {
         //отслеживание физикой столкновений бомб с бомбами 
         this.physics.add.collider(bombs, bombs);
         
-        //столкновения с информационной областью, установка границы
+        //столкновения с информационной областью, установка границыthis.lasersVisible
         this.physics.add.collider(info, bombs);
         this.physics.add.collider(info, robot);
-        this.physics.add.overlap(info, lasers, this.lasersVisible, null, this);
-        
+        this.physics.add.collider(info, reticle);
+        this.physics.add.overlap(info, lasers, function (info, lasers) {lasers.setVisible(false);} , null, this);
 
         //отслеживание нажатий клавишь мыши
         this.input.on('pointerdown', function (pointer) {
@@ -284,39 +296,81 @@ class Game_Lvl_1 extends Phaser.Scene {
 
         //создание сердечек,жизней
         hearts = this.physics.add.staticGroup(); 
-        heart_1 = hearts.create(80, 228, 'heart').setDepth(1);
-        heart_2 = hearts.create(100, 228, 'heart').setDepth(1);
-        heart_3 = hearts.create(120, 228, 'heart').setDepth(1);
+        heart_1 = hearts.create(70, 228, 'heart').setDepth(1);
+        heart_2 = hearts.create(98, 228, 'heart').setDepth(1);
+        heart_3 = hearts.create(126, 228, 'heart').setDepth(1);
+
+        // создание ракет
+        rockets = this.physics.add.group();
+        this.physics.add.overlap(info, rockets, function (info, rockets) {rockets.setVisible(false);} , null, this);
+        this.physics.add.overlap(robot, rockets, this.hitBomb, null, this);
+        
 
         //фуллскрин
         this.input.keyboard.addKey('F').on('down', function () {this.scale.startFullscreen();}, this);
     }
 
-    lasersVisible(info, lasers){
-        lasers.setVisible(false);
+    lbhit(bomb, laser){
+        var rad = bomb.rotation
+        rad += Math.PI/10
+        if (rad == 0){
+            bomb.disableBody(true, true);
+            this.getcoin(10)
+        } else {
+            bomb.setRotation(rad)
+        }
+        laser.setVisible(false)
+
     }
 
     //функция вызывающаяся при пререкрытии лазерами звезд
     collectStar (lasers, stars){
         //перенос звезы в рандомное место
-        stars.setPosition(Phaser.Math.Between(240,960),Phaser.Math.Between(40,560))
+        stars.setPosition(Phaser.Math.Between(240,960),Phaser.Math.Between(40,560));
         
-        coin += 10;
+        this.getcoin(10);
+        ysk += 0.5;
+        lifespanNull += 4;
+    }
 
-        //вывод счета в текстовое поле
-        coinText.setText('Coins: ' + coin)
+    spawnrocket()
+    {   
+        rocket_1 = rockets.create(250,0, 'rocket').setVelocity(robot.x*0.1,robot.y*0.1).setRotation(Phaser.Math.Angle.Between(200, 0, robot.x, robot.y)- Math.PI);
+        rocket_2 = rockets.create(250,600, 'rocket').setVelocity(robot.x*0.1,-robot.y*0.1).setRotation(-Phaser.Math.Angle.Between(200, 0, robot.x, robot.y)-Math.PI);
+        rocket_3 = rockets.create(950,600, 'rocket').setVelocity(-robot.x*0.1,-robot.y*0.1).setRotation(Phaser.Math.Angle.Between(200, 0, robot.x, robot.y));
+        rocket_4 = rockets.create(950,0, 'rocket').setVelocity(-robot.x*0.1,robot.y*0.1).setRotation(-Phaser.Math.Angle.Between(200, 0, robot.x, robot.y));
+    }
+
+    getcoin(nominal){
+        coin += nominal
 
         //генерация бомбы при наборе +50 очков
-        if (coin % 50 == 0){
-            //генерация бомбы
-            var bomb = bombs.create(Phaser.Math.Between(240,960),Phaser.Math.Between(40,560), 'bomb');
-            //установка бомбе свойства отскока от препядствий без потери скорости
-            bomb.setBounce(1);
-            //установка бомбе свойства отскока от границ
-            bomb.setCollideWorldBounds(true);
-            //устанавливаем вектор движения бомбы
-            bomb.setVelocity(Phaser.Math.Between(-70, 70), Phaser.Math.Between(-70, 70));
+        if (coin % 40 == 0){
+            this.spawnbomb()
         }
+
+        if (coin % 500 == 0){
+            this.spawnbomb()
+            this.spawnrocket()
+        }
+
+        if (coin % 1000 == 0){
+            this.spawnbomb()
+        }
+
+        //вывод счета в текстовое поле
+        coinText.setText('Coins: ' + coin)   
+    }
+
+    spawnbomb(){
+        //генерация бомбы
+        var bomb = bombs.create(Phaser.Math.Between(240,960),Phaser.Math.Between(40,560), 'bomb');
+        //установка бомбе свойства отскока от препядствий без потери скорости
+        bomb.setBounce(1);
+        //установка бомбе свойства отскока от границ
+        bomb.setCollideWorldBounds(true);
+        //устанавливаем вектор движения бомбы
+        bomb.setVelocity(Phaser.Math.Between(-170, 170), Phaser.Math.Between(-170, 170));
     }
 
     //функция, вызывающаяся при столкновении бомбы с роботом
@@ -324,7 +378,7 @@ class Game_Lvl_1 extends Phaser.Scene {
         //тряска камеры
         this.cameras.main.shake(500)
         
-        //вывод хп 
+        //уменьшение хп 
         hp -= 1;
 
         //конец игры при 3х столкновений с бомбами
@@ -338,6 +392,8 @@ class Game_Lvl_1 extends Phaser.Scene {
             hp = 3;
             coins = coin;
             coin = 0;
+            ysk = 0;
+            lifespanNull = 500;
             //остановка игры 
             this.physics.pause();
 
@@ -376,34 +432,34 @@ class Game_Lvl_1 extends Phaser.Scene {
     {  
         //движение робота по оси х при нажатии на стрелки
         if (cursors.left.isDown){
-            robot.setVelocityX(-100);
+            robot.setVelocityX(-150);
         } else if (cursors.right.isDown){
-            robot.setVelocityX(100);
+            robot.setVelocityX(150);
         } else {
             robot.setVelocityX(0);
         }
         
         //движение робота по оси у при нажатии на стрелки
         if (cursors.up.isDown){
-            robot.setVelocityY(-100);
+            robot.setVelocityY(-150);
         } else if (cursors.down.isDown){
-            robot.setVelocityY(100);
+            robot.setVelocityY(150);
         } else {
             robot.setVelocityY(0);
         }
 
         //стрельба
         if (isDown && time > lastFired)
-        {
+        {   
             var laser = lasers.get();
             if (laser)
             {
-                laser.fire(mouseX, mouseY, robot.x, robot.y);
-                lastFired = time + 50;
+                laser.fire(reticle.x, reticle.y, robot.x, robot.y);
+                lastFired = time + 350 - ysk;
             }
         }
         //отслеживание роботом курсора мыши
-        robot.setRotation(Phaser.Math.Angle.Between(mouseX, mouseY, robot.x, robot.y) - Math.PI / 2);
+        robot.setRotation(Phaser.Math.Angle.Between(reticle.x, reticle.y, robot.x, robot.y) - Math.PI / 2);
     }
 }
 
@@ -426,7 +482,7 @@ class Game_Lvl_2 extends Phaser.Scene {
         info.create(200, 300, 'line').setDepth(1);
 
         //информация
-        var help = ['Управление:', '· Стрелочки влево/вправо - \nперемещение робота;', '· Стрелочка вверх - взлёт.', '', 'Клавиша F - переход в\nполноэкранный режим.'];
+        var help = ['Управление:', '· Стрелочки влево/вправо - \nперемещение робота;', '· Стрелочка вверх - взлёт.', '', 'Клавиши F/ESC - управление\nполноэкранным режимом.'];
         this.add.text(5, 300, help, { fontFamily: 'bebas', fontSize: 15, color: '#000', lineSpacing: 6 }).setDepth(1);
 
         var button1 = this.add.image(100, 550, 'but_menu', 0).setInteractive().setDepth(1);
@@ -444,12 +500,13 @@ class Game_Lvl_2 extends Phaser.Scene {
 
         //создание текстового поля, выводит счёт
         coinText = this.add.text(2, 175, 'Coins: 0', { fontSize: '29px', fontStyle: 'bold', fill: '#000' }).setDepth(1);
+        coin = 0;
 
         //создание сердечек,жизней
         hearts = this.physics.add.staticGroup(); 
-        heart_1 = hearts.create(80, 228, 'heart').setDepth(1);
-        heart_2 = hearts.create(100, 228, 'heart').setDepth(1);
-        heart_3 = hearts.create(120, 228, 'heart').setDepth(1);
+        heart_1 = hearts.create(70, 228, 'heart').setDepth(1);
+        heart_2 = hearts.create(98, 228, 'heart').setDepth(1);
+        heart_3 = hearts.create(126, 228, 'heart').setDepth(1);
 
         //создание класса снарядов лазера, свойства и события
         var Bullet = new Phaser.Class({
