@@ -126,7 +126,7 @@ class Instructions extends Phaser.Scene {
             this.add.text(100, 380, 'Ты должен управлять роботом и собирать звёздочки, уворачиваясь и отстреливаясь', { fontFamily: 'bebas', fontStyle: 'bold', fontSize: 20, color: '#000000' });
             this.add.text(100, 410, 'от вражеских коптеров, имеющих несколько жизней!', { fontFamily: 'bebas', fontStyle: 'bold', fontSize: 20, color: '#000000' });
         }else if (whatgame == 'game_2'){
-	        this.add.text(100, 380, 'Ты должен управлять роботом и дойти собирать звёздочки, уворачиваясь от ракет и \nпреодолевая препятствия!', { fontFamily: 'bebas', fontStyle: 'bold', fontSize: 20, color: '#000000', lineSpacing: 6});
+	        this.add.text(100, 380, 'Ты должен управлять роботом и собирать звёздочки, уворачиваясь от ракет и \nпреодолевая препятствия!', { fontFamily: 'bebas', fontStyle: 'bold', fontSize: 20, color: '#000000', lineSpacing: 6});
         }
 
         //вызов функции старт на нажатие пробела
